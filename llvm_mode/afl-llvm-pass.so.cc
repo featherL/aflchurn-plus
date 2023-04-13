@@ -605,6 +605,30 @@ bool cal_line_age_rank(std::string relative_file_path, std::string git_directory
 }
 
 
+/* get number of people who changed the file */
+unsigned int cal_func_people(std::string relative_file_path, std::string git_directory,
+                std::string func_name) {
+  std::ostringstream cal_cmd;
+  unsigned int num_people = 0;
+
+  cal_cmd << "cd " << git_directory
+          << " && git log -L :" << func_name << ":" << relative_file_path
+          << " | grep 'Author: '" << " | sort | uniq | wc -l";
+
+  OKF("cal_cmd: %s", cal_cmd.str().c_str());
+
+  FILE *fp = popen(cal_cmd.str().c_str(), "r");
+  if (fp != NULL) {
+    if (fscanf(fp, "%u", &num_people) != 1) {
+      num_people = 0;
+    }
+    pclose(fp);
+  }
+
+  return num_people;
+}
+
+
 
 /* Check if file exists in HEAD using command mode.
 return:
@@ -739,7 +763,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   }
 
   // default: instrument changes and days
-  bool use_cmd_change = true, use_cmd_age_rank = false, use_cmd_age = true;
+  bool use_cmd_change = true, use_cmd_age_rank = false, use_cmd_age = true, use_cmd_people = true;
 
   char *day_sig_str, *change_sig_str;
 
@@ -770,6 +794,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       FATAL("Wrong change signal.");
     }
   }
+
+  if (getenv("AFLCHURN_DISABLE_PEOPLE")) use_cmd_people = false;
 
   unsigned int bb_select_ratio = CHURN_INSERT_RATIO;
   char *bb_select_ratio_str = getenv("AFLCHURN_INST_RATIO");
@@ -818,10 +844,16 @@ bool AFLCoverage::runOnModule(Module &M) {
   std::map<std::string, std::map<unsigned int, double>> map_age_scores, map_bursts_scores, map_rank_age;
 
   for (auto &F : M){
+    unsigned int func_people_num = 0;
+
     /* Get repository path and object */
     if (git_no_found && !is_one_commit){
       SmallVector<std::pair<unsigned, MDNode *>, 4> MDs;
       std::string funcdir, funcfile, func_abs_path;// func_clean_path;
+
+      std::string func_name = F.getName().str();
+      
+
       
       F.getAllMetadata(MDs);
       for (auto &MD : MDs) {
@@ -883,6 +915,12 @@ bool AFLCoverage::runOnModule(Module &M) {
                   norm_change_thd = inst_norm_change(THRESHOLD_CHANGES, change_sig);
                   norm_age_thd = inst_norm_age(head_commit_days - init_commit_days, THRESHOLD_DAYS);
                   norm_rank_thd = inst_norm_rank(head_num_parents, THRESHOLD_RANKS);
+
+                  if (use_cmd_people) {
+                    func_people_num = cal_func_people(get_file_path_relative_to_git_dir(funcfile, funcdir, git_path), git_path, func_name);
+                    if (func_people_num == 0) func_people_num = 1;
+                  }
+
                   break;
                 }
                 
@@ -909,6 +947,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
       double bb_rank_age = 0, bb_age_best = 0, bb_burst_best = 0, bb_rank_best = 0;
+      double bb_people_num = func_people_num;
+
       double bb_raw_fitness, tmp_score;
       bool bb_raw_fitness_flag = false;
       
@@ -926,6 +966,7 @@ bool AFLCoverage::runOnModule(Module &M) {
           filename = Loc->getFilename().str();
           filedir = Loc->getDirectory().str();
           line = Loc->getLine();
+          
           if (filename.empty()){
             DILocation *oDILoc = Loc->getInlinedAt();
             if (oDILoc){
@@ -1010,7 +1051,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       } 
  
       /* Load prev_loc */
-
+      
       LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
       PrevLoc->setMetadata(NoSanMetaId, NoneMetaNode);
       Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
@@ -1050,6 +1091,9 @@ bool AFLCoverage::runOnModule(Module &M) {
           bb_raw_fitness = bb_rank_age;
           bb_raw_fitness_flag = true;
 
+          if (use_cmd_people)
+            bb_raw_fitness = bb_raw_fitness * bb_people_num;
+
           inst_fitness ++;
           module_total_fitness += bb_raw_fitness;
           
@@ -1063,6 +1107,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
           bb_raw_fitness = bb_burst_best;
           bb_raw_fitness_flag = true;
+
+          if (use_cmd_people)
+            bb_raw_fitness = bb_raw_fitness * bb_people_num;
 
           inst_fitness ++;
           module_total_fitness += bb_raw_fitness;
@@ -1085,6 +1132,9 @@ bool AFLCoverage::runOnModule(Module &M) {
             // combine
             bb_raw_fitness = bb_burst_best * bb_rank_age;
             bb_raw_fitness_flag = true;
+
+            if (use_cmd_people)
+              bb_raw_fitness = bb_raw_fitness * bb_people_num;
 
             inst_fitness ++;
             module_total_fitness += bb_raw_fitness;
