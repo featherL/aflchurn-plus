@@ -160,6 +160,56 @@ double inst_norm_change(unsigned int num_changes, unsigned short change_select){
 
 }
 
+double inst_norm_people(unsigned num_people, unsigned short people_select){
+  double norm_people = 0;
+
+  switch(people_select){
+    case CHURN_LOG_PEOPLE:
+      // logpeople
+      if (num_people < 0) norm_people = 0;
+      else norm_people = log2(num_people + 1);
+      break;
+
+    case CHURN_PEOPLE:
+      norm_people = num_people;
+      break;
+
+    case CHURN_PEOPLE2:
+      // people^2
+      norm_people = (double)num_people * num_people;
+      break;
+    default:
+      FATAL("Wrong CHURN_PEOPLE type!");
+  }
+
+  return norm_people;
+}
+
+double inst_norm_flip(unsigned int num_flip, unsigned short flip_select){
+  double norm_flip = 0;
+
+  switch(flip_select){
+    case CHURN_LOG_FLIP:
+      // logflip
+      if (num_flip < 0) norm_flip = 0;
+      else norm_flip = log2(num_flip + 1);
+      break;
+
+    case CHURN_FLIP:
+      norm_flip = num_flip;
+      break;
+
+    case CHURN_FLIP2:
+      // flip^2
+      norm_flip = (double)num_flip * num_flip;
+      break;
+    default:
+      FATAL("Wrong CHURN_FLIP type!");
+  }
+
+  return norm_flip;
+}
+
 
 /* use popen() to execute git command */
 std::string execute_git_cmd (std::string directory, std::string str_cmd){
@@ -611,11 +661,26 @@ unsigned int cal_func_people(std::string relative_file_path, std::string git_dir
   std::ostringstream cal_cmd;
   unsigned int num_people = 0;
 
-  cal_cmd << "cd " << git_directory
-          << " && git log -L :" << func_name << ":" << relative_file_path
-          << " | grep 'Author: '" << " | sort | uniq | wc -l";
+  char* ch_month = getenv("AFLCHURN_SINCE_MONTHS");
+  if (ch_month){
+    std::string since_month(ch_month);
+    if (since_month.find_first_not_of("0123456789") == std::string::npos){ // all digits
+      
+      cal_cmd << "cd " << git_directory 
+          << " && git log --since=" << ch_month << ".months"
+          << " -L :" << func_name << ":" << relative_file_path;
+          
+    } else {
+      ch_month = NULL; // if env variable is not digits, use all commits
+    }
+  }
 
-  OKF("cal_cmd: %s", cal_cmd.str().c_str());
+  if (!ch_month) {
+    cal_cmd << "cd " << git_directory
+            << " && git log -L :" << func_name << ":" << relative_file_path;
+  }
+
+  cal_cmd << " | grep 'Author: '" << " | sort | uniq | wc -l";
 
   FILE *fp = popen(cal_cmd.str().c_str(), "r");
   if (fp != NULL) {
@@ -626,6 +691,55 @@ unsigned int cal_func_people(std::string relative_file_path, std::string git_dir
   }
 
   return num_people;
+}
+
+/* get the number of changing flip */
+unsigned int cal_func_flip(std::string relative_file_path, std::string git_directory,
+                std::string func_name) {
+  std::ostringstream cal_cmd;
+  unsigned int num_flip = 0;
+
+  char* ch_month = getenv("AFLCHURN_SINCE_MONTHS");
+  if (ch_month){
+    std::string since_month(ch_month);
+    if (since_month.find_first_not_of("0123456789") == std::string::npos){ // all digits
+      
+      cal_cmd << "cd " << git_directory 
+          << " && git log --since=" << ch_month << ".months"
+          << " -L :" << func_name << ":" << relative_file_path;
+          
+    } else {
+      ch_month = NULL; // if env variable is not digits, use all commits
+    }
+  }
+
+  if (!ch_month) {
+    cal_cmd << "cd " << git_directory
+            << " && git log -L :" << func_name << ":" << relative_file_path;
+  }
+
+  cal_cmd << " | grep 'Author: '";
+
+  FILE *fp = popen(cal_cmd.str().c_str(), "r");
+
+
+  if (fp != NULL) {
+    char line[1024];
+    std::string last_author = "";
+    while (fgets(line, sizeof(line), fp) != NULL) {
+      std::string author(line);
+      if (author != last_author) {
+        num_flip++;
+        last_author = author;
+      }
+    }
+    pclose(fp);
+  }
+
+  if (num_flip > 0)
+    num_flip--;
+
+  return num_flip;
 }
 
 
@@ -763,11 +877,14 @@ bool AFLCoverage::runOnModule(Module &M) {
   }
 
   // default: instrument changes and days
-  bool use_cmd_change = true, use_cmd_age_rank = false, use_cmd_age = true, use_cmd_people = true;
+  bool use_cmd_change = true, use_cmd_age_rank = false, use_cmd_age = true, use_cmd_people = true, use_cmd_flip = true;
 
-  char *day_sig_str, *change_sig_str;
+  char *day_sig_str, *change_sig_str, *people_sig_str, *flip_sig_str;
 
   unsigned short change_sig = CHURN_LOG_CHANGE; //day_sig, 
+  unsigned short people_sig = CHURN_LOG_PEOPLE;
+  unsigned short flip_sig = CHURN_LOG_FLIP;
+
 
   if (getenv("AFLCHURN_DISABLE_AGE")) use_cmd_age = false;
   day_sig_str = getenv("AFLCHURN_ENABLE_RANK");
@@ -796,6 +913,35 @@ bool AFLCoverage::runOnModule(Module &M) {
   }
 
   if (getenv("AFLCHURN_DISABLE_PEOPLE")) use_cmd_people = false;
+  people_sig_str = getenv("AFLCHURN_PEOPLE_SIG");
+  if (people_sig_str){
+    if (!use_cmd_people) FATAL("Cannot simultaneously set AFLCHURN_DISABLE_PEOPLE and AFLCHURN_PEOPLE_SIG!");
+    if (!strcmp(people_sig_str, "logpeople")){
+      people_sig = CHURN_LOG_PEOPLE;
+    } else if (!strcmp(people_sig_str, "people")){
+      people_sig = CHURN_PEOPLE;
+    } else if (!strcmp(people_sig_str, "people2")){
+      people_sig = CHURN_PEOPLE2;
+    } else {
+      FATAL("Wrong people signal.");
+    }
+  }
+
+  if (getenv("AFLCHURN_DISABLE_FLIP")) use_cmd_flip = false;
+  flip_sig_str = getenv("AFLCHURN_FLIP_SIG");
+  if (flip_sig_str){
+    if (!use_cmd_flip) FATAL("Cannot simultaneously set AFLCHURN_DISABLE_FLIP and AFLCHURN_FLIP_SIG!");
+    if (!strcmp(flip_sig_str, "logflip")){
+      flip_sig = CHURN_LOG_FLIP;
+    } else if (!strcmp(flip_sig_str, "flip")){
+      flip_sig = CHURN_FLIP;
+    } else if (!strcmp(flip_sig_str, "flip2")){
+      flip_sig = CHURN_FLIP2;
+    } else {
+      FATAL("Wrong flip signal.");
+    }
+  }
+
 
   unsigned int bb_select_ratio = CHURN_INSERT_RATIO;
   char *bb_select_ratio_str = getenv("AFLCHURN_INST_RATIO");
@@ -821,9 +967,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   /* Instrument all the things! */
 
-  int inst_blocks = 0, inst_ages = 0, inst_changes = 0, inst_fitness = 0;
-  double module_total_ages = 0, module_total_changes = 0, module_total_fitness = 0,
-      module_ave_ages = 0, module_ave_chanegs = 0, module_ave_fitness = 0;
+  int inst_blocks = 0, inst_ages = 0, inst_changes = 0, inst_people = 0, inst_flip = 0, inst_fitness = 0;
+  double module_total_ages = 0, module_total_changes = 0, module_total_people = 0, module_total_flip = 0, module_total_fitness = 0,
+      module_ave_ages = 0, module_ave_chanegs = 0, module_ave_people = 0, module_ave_flip = 0, module_ave_fitness = 0;
 
   // Choose part of BBs to insert the age/change signal
   int changes_inst_threshold = 0; // for change
@@ -844,7 +990,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   std::map<std::string, std::map<unsigned int, double>> map_age_scores, map_bursts_scores, map_rank_age;
 
   for (auto &F : M){
-    unsigned int func_people_num = 0;
+    unsigned int func_people_num = 0, func_flip_num = 0;
 
     /* Get repository path and object */
     if (git_no_found && !is_one_commit){
@@ -918,7 +1064,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
                   if (use_cmd_people) {
                     func_people_num = cal_func_people(get_file_path_relative_to_git_dir(funcfile, funcdir, git_path), git_path, func_name);
-                    if (func_people_num == 0) func_people_num = 1;
+                  }
+
+                  if (use_cmd_flip) {
+                    func_flip_num = cal_func_flip(get_file_path_relative_to_git_dir(funcfile, funcdir, git_path), git_path, func_name);
                   }
 
                   break;
@@ -947,7 +1096,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
       double bb_rank_age = 0, bb_age_best = 0, bb_burst_best = 0, bb_rank_best = 0;
-      double bb_people_num = func_people_num;
+      double bb_people = inst_norm_people(func_people_num, people_sig),
+        bb_flip = inst_norm_flip(func_flip_num, flip_sig);
 
       double bb_raw_fitness, tmp_score;
       bool bb_raw_fitness_flag = false;
@@ -1079,68 +1229,66 @@ bool AFLCoverage::runOnModule(Module &M) {
       Store->setMetadata(NoSanMetaId, NoneMetaNode);
 
       /* insert age/churn into BBs */
-      if ((use_cmd_age || use_cmd_age_rank) && !use_cmd_change){
-        /* Age only; Add age of lines */
-        if ((bb_rank_age > 0) && //only when age is assigned
-                  (bb_age_best > norm_age_thd || bb_rank_best > norm_rank_thd
-                      || AFL_R(100) < bb_select_ratio)){
+      bb_raw_fitness = 1.0;
+      bb_raw_fitness_flag = true;
+      if (use_cmd_age || use_cmd_age_rank) {
+        if (bb_rank_age > 0 && (bb_age_best > norm_age_thd || bb_rank_best > norm_rank_thd)) {
+          bb_raw_fitness *= bb_rank_age;
+        } else {
+          bb_raw_fitness_flag = false;
+        }
+      }
 
+      if (use_cmd_change) {
+        if (bb_burst_best > 0 && bb_burst_best > norm_change_thd) {
+          bb_raw_fitness *= bb_burst_best;
+        } else {
+          bb_raw_fitness_flag = false;
+        }
+      }
+
+      if (use_cmd_people) {
+        if (bb_people > 0) {
+          bb_raw_fitness *= bb_people;
+        } else {
+          bb_raw_fitness_flag = false;
+        }
+      }
+
+      if (use_cmd_flip) {
+        if (bb_flip > 0) {
+          bb_raw_fitness *= bb_flip;
+        } else {
+          bb_raw_fitness_flag = false;
+        }
+      }
+
+      if (!(AFL_R(100) < bb_select_ratio))
+        bb_raw_fitness_flag = false;
+      
+      if (bb_raw_fitness_flag) {
+        if (use_cmd_age || use_cmd_age_rank) {
           inst_ages ++;
           module_total_ages += bb_rank_age;
-
-          bb_raw_fitness = bb_rank_age;
-          bb_raw_fitness_flag = true;
-
-          if (use_cmd_people)
-            bb_raw_fitness = bb_raw_fitness * bb_people_num;
-
-          inst_fitness ++;
-          module_total_fitness += bb_raw_fitness;
-          
         }
-      } else if (use_cmd_change && !use_cmd_age_rank && !use_cmd_age){
-        /* Change Only; Add changes of lines */
-        if ((bb_burst_best > 0) && //only when change is assigned
-                (bb_burst_best > norm_change_thd || AFL_R(100) < bb_select_ratio)){
+
+        if (use_cmd_change) {
           inst_changes++;
           module_total_changes += bb_burst_best;
-
-          bb_raw_fitness = bb_burst_best;
-          bb_raw_fitness_flag = true;
-
-          if (use_cmd_people)
-            bb_raw_fitness = bb_raw_fitness * bb_people_num;
-
-          inst_fitness ++;
-          module_total_fitness += bb_raw_fitness;
         }
-      } else if ((use_cmd_age || use_cmd_age_rank) && use_cmd_change){
-        /* both age and change are enabled */
-        if ((bb_rank_age > 0 || bb_burst_best > 0) &&
-                (bb_burst_best > norm_change_thd || bb_age_best > norm_age_thd
-                   || bb_rank_best > norm_rank_thd || AFL_R(100) < bb_select_ratio)){
-            // change
-            if (bb_burst_best > 0){
-              inst_changes++;
-              module_total_changes += bb_burst_best;
-            } else bb_burst_best = 1;
-            // age
-            if (bb_rank_age > 0){
-              inst_ages ++;
-              module_total_ages += bb_rank_age;
-            } else bb_rank_age = 1;
-            // combine
-            bb_raw_fitness = bb_burst_best * bb_rank_age;
-            bb_raw_fitness_flag = true;
 
-            if (use_cmd_people)
-              bb_raw_fitness = bb_raw_fitness * bb_people_num;
-
-            inst_fitness ++;
-            module_total_fitness += bb_raw_fitness;
-          
+        if (use_cmd_people) {
+          inst_people++;
+          module_total_people += bb_people;
         }
-        
+
+        if (use_cmd_flip) {
+          inst_flip++;
+          module_total_flip += bb_flip;
+        }
+
+        inst_fitness++;
+        module_total_fitness += bb_raw_fitness;
       }
 
       if (bb_raw_fitness_flag) {
@@ -1192,6 +1340,8 @@ bool AFLCoverage::runOnModule(Module &M) {
     OKF("AFLChurn instrumentation ratio %u%%", bb_select_ratio);
     if (inst_ages) module_ave_ages = module_total_ages / inst_ages;
     if (inst_changes) module_ave_chanegs = module_total_changes / inst_changes;
+    if (inst_people) module_ave_people = module_total_people / inst_people;
+    if (inst_flip) module_ave_flip = module_total_flip / inst_flip;
     if (inst_fitness) module_ave_fitness = module_total_fitness / inst_fitness;
 
     if (use_cmd_age && !is_one_commit){
@@ -1206,10 +1356,18 @@ bool AFLCoverage::runOnModule(Module &M) {
                     inst_changes, module_ave_chanegs);
     } 
 
+    if (use_cmd_people && !is_one_commit){
+      OKF("Using People. Counted %u BBs with the average people of f(people)=%.6f people.",
+                    inst_people, module_ave_people);
+    }
+
+    if (use_cmd_flip && !is_one_commit){
+      OKF("Using Flip. Counted %u BBs with the average flip of f(flip)=%.6f flips.",
+                    inst_flip, module_ave_flip);
+    }
+
     OKF("BB Churn Raw Fitness. Instrumented %u BBs with average raw fitness of %.6f",
                     inst_fitness, module_ave_fitness);
-      
-
   }
 
   return true;

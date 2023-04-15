@@ -350,6 +350,18 @@ enum{
    CHURN_CHANGE2
 };
 
+enum {
+   CHURN_LOG_PEOPLE,
+   CHURN_PEOPLE,
+   CHURN_PEOPLE2
+};
+
+enum {
+   CHURN_LOG_FLIP,
+   CHURN_FLIP,
+   CHURN_FLIP2
+};
+
 enum{
    ACO_INC_ONLY,
    ACO_INC_DEC
