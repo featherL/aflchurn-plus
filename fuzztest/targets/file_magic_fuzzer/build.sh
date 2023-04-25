@@ -6,7 +6,7 @@ autoreconf -i
 make V=1 all
 
 $CXX $CXXFLAGS -std=c++11 -Isrc/ \
-     /magic_fuzzer.cc -o /out/target \
+     /magic_fuzzer.cc -o /out/magic_fuzzer \
      -lFuzzingEngine ./src/.libs/libmagic.a -lc++
 
 cp ./magic/magic.mgc /out/

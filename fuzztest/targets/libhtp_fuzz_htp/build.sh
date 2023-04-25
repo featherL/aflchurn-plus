@@ -6,7 +6,7 @@ make
 
 $CC $CFLAGS -I. -c test/fuzz/fuzz_htp.c -o fuzz_htp.o
 $CC $CFLAGS -I. -c test/test.c -o test.o
-$CXX $CXXFLAGS fuzz_htp.o test.o -o /out/target ./htp/.libs/libhtp.a $LIB_FUZZING_ENGINE -lz -llzma -lc++
+$CXX $CXXFLAGS fuzz_htp.o test.o -o /out/fuzz_htp ./htp/.libs/libhtp.a $LIB_FUZZING_ENGINE -lz -llzma -lc++
 
 # builds corpus
-zip -j /out/seed_corpus.zip test/files/*.t
+zip -r /out/fuzz_htp_seed_corpus.zip test/files/*.t

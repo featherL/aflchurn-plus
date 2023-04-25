@@ -25,5 +25,4 @@ pushd $SRC/aspell-fuzz
 sed 's/-static$/-static -ldl/' Makefile.am && ./ossfuzz.sh
 popd
 
-mv $OUT/aspell_fuzzer /out/target && mv $OUT/aspell_fuzzer_seed_corpus.zip /out/seed_corpus.zip
 

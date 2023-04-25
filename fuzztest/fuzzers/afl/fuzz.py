@@ -6,6 +6,7 @@ import shutil
 import zipfile
 import hashlib
 import signal
+import configparser
 
 
 INPUT_DIR = '/data/input'
@@ -108,8 +109,9 @@ def create_seed_file_for_empty_corpus(input_corpus):
 
 
 def prepare_seed(seed_dir):
-    if os.path.exists('/out/seed_corpus.zip'):
-        with zipfile.ZipFile('/out/seed_corpus.zip') as zip_file:
+    seed_corpus_dir = os.path.join(os.environ['OUT'], os.environ['FUZZ_TARGET'] + '_seed_corpus.zip')
+    if os.path.exists(seed_corpus_dir):
+        with zipfile.ZipFile(seed_corpus_dir) as zip_file:
             for seed_corpus_file in zip_file.infolist():
                 if seed_corpus_file.filename.endswith('/'):
                     # Ignore directories.
@@ -157,8 +159,44 @@ def prepare_fuzz_environment(input_corpus):
     prepare_seed(input_corpus)
 
 
+def get_dictionary_path(target_binary):
+    """Return dictionary path for a target binary."""
+    # if get_env('NO_DICTIONARIES'):
+    #     # Don't use dictionaries if experiment specifies not to.
+    #     return None
+
+    dictionary_path = target_binary + '.dict'
+    if os.path.exists(dictionary_path):
+        return dictionary_path
+
+    options_file_path = target_binary + '.options'
+    if not os.path.exists(options_file_path):
+        return None
+
+    config = configparser.ConfigParser()
+    with open(options_file_path, 'r') as file_handle:
+        try:
+            config.read_file(file_handle)
+        except configparser.Error as error:
+            raise Exception('Failed to parse fuzzer options file: ' +
+                            options_file_path) from error
+
+    for section in config.sections():
+        for key, value in config.items(section):
+            if key == 'dict':
+                dictionary_path = os.path.join(os.path.dirname(target_binary),
+                                               value)
+                if not os.path.exists(dictionary_path):
+                    raise ValueError('Bad dictionary path in options file: ' +
+                                     options_file_path)
+                return dictionary_path
+    return None
+
+
 def run_fuzz():
     prepare_fuzz_environment(INPUT_DIR)
+    target = os.environ['FUZZ_TARGET']
+    target_binary = os.path.join(os.environ['OUT'], target)
     command = [
         '/afl/afl-fuzz',
         '-i',
@@ -173,10 +211,13 @@ def run_fuzz():
     ]
     # Use '-d' to skip deterministic mode, as long as it it compatible with
     # additional flags.
+    dictionary_path = get_dictionary_path(target_binary)
+    if dictionary_path:
+        command.extend(['-x', dictionary_path])
 
     command += [
         '--',
-        '/out/target',
+        target_binary,
         # Pass INT_MAX to afl the maximize the number of persistent loops it
         # performs.
         '2147483647'
