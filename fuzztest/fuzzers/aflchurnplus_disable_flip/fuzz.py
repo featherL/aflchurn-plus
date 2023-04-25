@@ -93,9 +93,11 @@ def prepare_build_environment():
     append_flags('CXXFLAGS', cflags)
     append_flags('ASAN_OPTIONS', ['abort_on_error=1', 'symbolize=0'])
 
-    os.environ['CC'] = 'clang'
-    os.environ['CXX'] = 'clang++'
+    os.environ['CC'] = '/afl/afl-clang-fast'
+    os.environ['CXX'] = '/afl/afl-clang-fast++'
     os.environ['FUZZER_LIB'] = '/libAFL.a'
+
+    os.environ['AFLCHURN_DISABLE_FLIP'] = '1'
 
 
 def build():
