@@ -2,6 +2,7 @@
 
 import subprocess
 import os
+import traceback
 
 
 def build_baseimag(quiet=False):
@@ -49,11 +50,17 @@ def build_target(target, quiet=False):
         os.path.join('targets', target)
         ]
 
-    if quiet:
-        subprocess.check_call(build_target_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    else:
-        subprocess.check_call(build_target_cmd)
-    print('[+] Done: target: {}'.format(target_tag))
+    try:
+        if quiet:
+            subprocess.check_call(build_target_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        else:
+            subprocess.check_call(build_target_cmd)
+        print('[+] Done: target: {}'.format(target_tag))
+    except Exception as e:
+        traceback.print_exc()
+        return False
+    
+    return True
     
 
 def build_fuzzer(fuzzer, target, quiet=False):
@@ -78,11 +85,18 @@ def build_fuzzer(fuzzer, target, quiet=False):
         os.path.join('fuzzers', fuzzer)
     ]
 
-    if quiet:
-        subprocess.check_call(build_fuzzer_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    else:
-        subprocess.check_call(build_fuzzer_cmd)
-    print('[+] Done: fuzzer: {}'.format(fuzzer_tag))
+    try:
+        if quiet:
+            subprocess.check_call(build_fuzzer_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        else:
+            subprocess.check_call(build_fuzzer_cmd)
+        print('[+] Done: fuzzer: {}'.format(fuzzer_tag))
+    except Exception as e:
+        traceback.print_exc()
+        return False
+    
+    
+    return True
 
 
 def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
@@ -99,11 +113,18 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
     run_fuzzer_cmd = 'docker run -e FUZZ_TIMEOUT={} --rm --cpus=1 -v {}:/data --name {} {} 2>&1 | tee {}/fuzz.log'.format(timeout, result_dir, name, fuzzer_tag, result_dir)
     
     print('[+] Running fuzzer: {}'.format(run_fuzzer_cmd))
-    if quiet:
-        subprocess.check_call(run_fuzzer_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    else:
-        subprocess.check_call(run_fuzzer_cmd, shell=True)
-    print('[+] Done: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
+    try:
+        if quiet:
+            subprocess.check_call(run_fuzzer_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        else:
+            subprocess.check_call(run_fuzzer_cmd, shell=True)
+        print('[+] Done: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
+    except Exception as e:
+        traceback.print_exc()
+        return False
+    
+    return True
+    
 
 
 if __name__ == '__main__':
@@ -130,29 +151,33 @@ if __name__ == '__main__':
 
         if args.parallel_build > 0:
             from multiprocessing import Pool
-            pool = Pool(args.parallel_build)
 
+            pool = Pool(args.parallel_build)
             try:
-                for target in targets:
-                    pool.apply_async(build_target, args=(target,), kwds={'quiet': True})
-                pool.close()
-                pool.join()
+                results = pool.starmap(build_target, [(target, True) for target in targets])
+
+                if results.count(True) != len(results):
+                    print('[-] Failed!')
+                    exit()
             except KeyboardInterrupt:
                 pool.terminate()
                 pool.join()
                 exit()
+            finally:
+                pool.close()
 
             pool = Pool(args.parallel_build)
             try:
-                for target in targets:
-                    for fuzzer in fuzzers:
-                        pool.apply_async(build_fuzzer, args=(fuzzer, target), kwds={'quiet': True})
-                pool.close()
-                pool.join()
+                results = pool.starmap(build_fuzzer, [(fuzzer, target, True) for target in targets for fuzzer in fuzzers])
+                if results.count(True) != len(results):
+                    print('[-] Failed!')
+                    exit()
             except KeyboardInterrupt:
                 pool.terminate()
                 pool.join()
                 exit()
+            finally:
+                pool.close()
         else:
             for target in targets:
                 build_target(target)
