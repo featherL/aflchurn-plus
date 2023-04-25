@@ -2,7 +2,6 @@
 
 import subprocess
 import os
-import traceback
 
 
 def build_baseimag(quiet=False):
@@ -52,12 +51,12 @@ def build_target(target, quiet=False):
 
     try:
         if quiet:
-            subprocess.check_call(build_target_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.check_call(build_target_cmd, stdout=subprocess.DEVNULL)
         else:
             subprocess.check_call(build_target_cmd)
         print('[+] Done: target: {}'.format(target_tag))
     except Exception as e:
-        traceback.print_exc()
+        print('[-] Falied: target: {}'.format(target_tag))
         return False
     
     return True
@@ -87,12 +86,12 @@ def build_fuzzer(fuzzer, target, quiet=False):
 
     try:
         if quiet:
-            subprocess.check_call(build_fuzzer_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.check_call(build_fuzzer_cmd, stdout=subprocess.DEVNULL)
         else:
             subprocess.check_call(build_fuzzer_cmd)
         print('[+] Done: fuzzer: {}'.format(fuzzer_tag))
     except Exception as e:
-        traceback.print_exc()
+        print('[-] Falied: target: {}'.format(target_tag))
         return False
     
     
@@ -115,12 +114,12 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
     print('[+] Running fuzzer: {}'.format(run_fuzzer_cmd))
     try:
         if quiet:
-            subprocess.check_call(run_fuzzer_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.check_call(run_fuzzer_cmd, shell=True, stdout=subprocess.DEVNULL)
         else:
             subprocess.check_call(run_fuzzer_cmd, shell=True)
         print('[+] Done: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
     except Exception as e:
-        traceback.print_exc()
+        print('[-] Falied: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
         return False
     
     return True
