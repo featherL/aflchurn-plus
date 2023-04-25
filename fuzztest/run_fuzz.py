@@ -94,7 +94,7 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
 
     run_fuzzer_cmd = 'docker run -e FUZZ_TIMEOUT={} --rm --cpus=1 -v {}:/data --name {} {} 2>&1 | tee {}/fuzz.log'.format(timeout, result_dir, name, fuzzer_tag, result_dir)
     
-    print('[+] Running fuzzer: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
+    print('[+] Running fuzzer: {}'.format(run_fuzzer_cmd))
     if quiet:
         subprocess.check_call(run_fuzzer_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     else:

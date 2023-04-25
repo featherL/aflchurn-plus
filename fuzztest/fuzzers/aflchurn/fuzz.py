@@ -60,7 +60,7 @@ def initialize_env(env=None):
     set_compilation_flags(env)
 
     for env_var in ['CFLAGS', 'CXXFLAGS']:
-        print('{env_var} = {env_value}'.format(env_var=env_var,
+        print('[+] {env_var} = {env_value}'.format(env_var=env_var,
                                                env_value=os.getenv(env_var)))
 
 
@@ -108,6 +108,9 @@ def create_seed_file_for_empty_corpus(input_corpus):
 
 
 def prepare_seed(seed_dir):
+    if not os.path.exists('/out/seed_corpus.zip'):
+        return
+    
     with zipfile.ZipFile('/out/seed_corpus.zip') as zip_file:
         for seed_corpus_file in zip_file.infolist():
             if seed_corpus_file.filename.endswith('/'):
@@ -191,7 +194,13 @@ def run_fuzz():
 
 
 if __name__ == '__main__':
-    initialize_env()
-    build()
-    run_fuzz()
+    import sys
+
+    if len(sys.argv) == 2:
+        if sys.argv[1] == 'run':
+            run_fuzz()
+        elif sys.argv[1] == 'build':
+            initialize_env()
+            build()
+
 
