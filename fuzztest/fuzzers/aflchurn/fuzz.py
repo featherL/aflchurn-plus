@@ -108,32 +108,30 @@ def create_seed_file_for_empty_corpus(input_corpus):
 
 
 def prepare_seed(seed_dir):
-    if not os.path.exists('/out/seed_corpus.zip'):
-        return
-    
-    with zipfile.ZipFile('/out/seed_corpus.zip') as zip_file:
-        for seed_corpus_file in zip_file.infolist():
-            if seed_corpus_file.filename.endswith('/'):
-                # Ignore directories.
-                continue
+    if os.path.exists('/out/seed_corpus.zip'):
+        with zipfile.ZipFile('/out/seed_corpus.zip') as zip_file:
+            for seed_corpus_file in zip_file.infolist():
+                if seed_corpus_file.filename.endswith('/'):
+                    # Ignore directories.
+                    continue
 
-            # Allow callers to opt-out of unpacking large files.
-            if seed_corpus_file.file_size > CORPUS_ELEMENT_BYTES_LIMIT:
-                continue
+                # Allow callers to opt-out of unpacking large files.
+                if seed_corpus_file.file_size > CORPUS_ELEMENT_BYTES_LIMIT:
+                    continue
 
-            chunk_size = 51200  # Read in 50 KB chunks.
-            digest = hashlib.sha1()
-            with zip_file.open(seed_corpus_file.filename, 'r') as file_handle:
-                chunk = file_handle.read(chunk_size)
-                while chunk:
-                    digest.update(chunk)
+                chunk_size = 51200  # Read in 50 KB chunks.
+                digest = hashlib.sha1()
+                with zip_file.open(seed_corpus_file.filename, 'r') as file_handle:
                     chunk = file_handle.read(chunk_size)
-            
-            sha1sum = digest.hexdigest()
-            dst_path = os.path.join(seed_dir, sha1sum)
-            with zip_file.open(seed_corpus_file.filename, 'r') as src_file:
-                with open(dst_path, 'wb') as dst_file:
-                    shutil.copyfileobj(src_file, dst_file)
+                    while chunk:
+                        digest.update(chunk)
+                        chunk = file_handle.read(chunk_size)
+                
+                sha1sum = digest.hexdigest()
+                dst_path = os.path.join(seed_dir, sha1sum)
+                with zip_file.open(seed_corpus_file.filename, 'r') as src_file:
+                    with open(dst_path, 'wb') as dst_file:
+                        shutil.copyfileobj(src_file, dst_file)
     
     create_seed_file_for_empty_corpus(seed_dir)
       
