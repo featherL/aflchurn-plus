@@ -51,7 +51,7 @@ def build_target(target, quiet=False):
 
     try:
         if quiet:
-            subprocess.check_call(build_target_cmd, stdout=subprocess.DEVNULL)
+            subprocess.check_call(build_target_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         else:
             subprocess.check_call(build_target_cmd)
         print('[+] Done: target: {}'.format(target_tag))
@@ -86,7 +86,7 @@ def build_fuzzer(fuzzer, target, quiet=False):
 
     try:
         if quiet:
-            subprocess.check_call(build_fuzzer_cmd, stdout=subprocess.DEVNULL)
+            subprocess.check_call(build_fuzzer_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         else:
             subprocess.check_call(build_fuzzer_cmd)
         print('[+] Done: fuzzer: {}'.format(fuzzer_tag))
@@ -114,7 +114,7 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
     print('[+] Running fuzzer: {}'.format(run_fuzzer_cmd))
     try:
         if quiet:
-            subprocess.check_call(run_fuzzer_cmd, shell=True, stdout=subprocess.DEVNULL)
+            subprocess.check_call(run_fuzzer_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         else:
             subprocess.check_call(run_fuzzer_cmd, shell=True)
         print('[+] Done: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
