@@ -56,7 +56,7 @@ def build_target(target, quiet=False):
             subprocess.check_call(build_target_cmd)
         print('[+] Done: target: {}'.format(target_tag))
     except Exception as e:
-        print('[-] Falied: target: {}'.format(target_tag))
+        print('[-] Falied to build target: {}'.format(target_tag))
         return False
     
     return True
@@ -91,7 +91,7 @@ def build_fuzzer(fuzzer, target, quiet=False):
             subprocess.check_call(build_fuzzer_cmd)
         print('[+] Done: fuzzer: {}'.format(fuzzer_tag))
     except Exception as e:
-        print('[-] Falied: target: {}'.format(target_tag))
+        print('[-] Falied to build fuzzer: {}'.format(fuzzer_tag))
         return False
     
     
@@ -119,7 +119,7 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
             subprocess.check_call(run_fuzzer_cmd, shell=True)
         print('[+] Done: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
     except Exception as e:
-        print('[-] Falied: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
+        print('[-] Falied to run fuzzing: target: {}, fuzzer: {}, trial: {}'.format(target, fuzzer, trial_id))
         return False
     
     return True
