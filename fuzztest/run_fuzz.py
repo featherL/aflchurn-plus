@@ -89,7 +89,7 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
     target_tag = os.path.join('fuzztest', 'target', target) 
     fuzzer_tag = os.path.join(target_tag, fuzzer)
 
-    name = 'fuzztest_{}_{}_{}'.format(target, fuzzer, trial_id)
+    name = '{}_{}_{}_{}'.format(data_dir.replace('/', '_'), target, fuzzer, trial_id)
     result_dir = os.path.join(data_dir, name)
 
     os.makedirs(result_dir, exist_ok=True)
