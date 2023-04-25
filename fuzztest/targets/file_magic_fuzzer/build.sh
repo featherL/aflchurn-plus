@@ -5,7 +5,7 @@ autoreconf -i
 ./configure --enable-static --disable-shared --disable-libseccomp
 make V=1 all
 
-clang++ -std=c++11 -Isrc/ \
+$CXX $CXXFLAGS -std=c++11 -Isrc/ \
      /magic_fuzzer.cc -o /out/target \
      -lFuzzingEngine ./src/.libs/libmagic.a -lc++
 
