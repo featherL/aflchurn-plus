@@ -98,7 +98,7 @@ def build_fuzzer(fuzzer, target, quiet=False):
     return True
 
 
-def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
+def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False, cpu=0):
     target_tag = os.path.join('fuzztest', 'target', target) 
     fuzzer_tag = os.path.join(target_tag, fuzzer)
 
@@ -108,7 +108,7 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
     os.makedirs(os.path.join(result_dir, 'input'), exist_ok=True)
     os.makedirs(os.path.join(result_dir, 'output'), exist_ok=True)
 
-    run_fuzzer_cmd = 'docker run -e FUZZ_TIMEOUT={} --rm --cpus=1 -v {}:/data --name {} {} 2>&1 | tee {}/fuzz.log'.format(timeout, result_dir, name, fuzzer_tag, result_dir)
+    run_fuzzer_cmd = 'docker run -e FUZZ_TIMEOUT={} --rm --cpus=1 --cpuset-cpus={} -v {}:/data --name {} {} 2>&1 | tee {}/fuzz.log'.format(timeout, cpu, result_dir, name, fuzzer_tag, result_dir)
     
     print('[+] Running fuzzer: {}'.format(run_fuzzer_cmd))
     try:
@@ -186,14 +186,21 @@ if __name__ == '__main__':
 
     if args.run:
         if args.parallel_run > 0:
-            from multiprocessing import Pool
+            from multiprocessing import Pool, cpu_count
+
+            if args.parallel_run > cpu_count():
+                raise ValueError('Parallel count must less than the number of total cpu cores ')
+
             pool = Pool(args.parallel_run)
+
+            cpu = 0
 
             try:
                 for trail_id in range(args.count):
                     for target in targets:
                         for fuzzer in fuzzers:
-                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id))), kwds={'quiet': True})
+                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id))), kwds={'quiet': True, 'cpu': cpu})
+                            cpu = (cpu + 1) % args.parallel_run
                 pool.close()
                 pool.join()
             except KeyboardInterrupt:
