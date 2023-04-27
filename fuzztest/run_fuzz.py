@@ -103,9 +103,8 @@ def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False):
     fuzzer_tag = os.path.join(target_tag, fuzzer)
 
     name = '{}_{}_{}_{}'.format(os.urandom(4).hex(), target, fuzzer, trial_id)
-    result_dir = os.path.join(data_dir, name)
+    result_dir = os.path.join(data_dir, target, fuzzer)
 
-    os.makedirs(result_dir, exist_ok=True)
     os.makedirs(os.path.join(result_dir, 'input'), exist_ok=True)
     os.makedirs(os.path.join(result_dir, 'output'), exist_ok=True)
 
@@ -194,7 +193,7 @@ if __name__ == '__main__':
                 for trail_id in range(args.count):
                     for target in targets:
                         for fuzzer in fuzzers:
-                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trail_id, args.max_time, args.data_dir), kwds={'quiet': True})
+                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id))), kwds={'quiet': True})
                 pool.close()
                 pool.join()
             except KeyboardInterrupt:
