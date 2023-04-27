@@ -187,20 +187,24 @@ if __name__ == '__main__':
     if args.run:
         if args.parallel_run > 0:
             from multiprocessing import Pool, cpu_count
+            import psutil
 
             if args.parallel_run > cpu_count():
                 raise ValueError('Parallel count must less than the number of total cpu cores ')
 
             pool = Pool(args.parallel_run)
 
-            cpu = 0
+            # get all core id
+            cpu_ids = psutil.Process(1).cpu_affinity()
+            idx = 0
+
 
             try:
                 for trail_id in range(args.count):
                     for target in targets:
                         for fuzzer in fuzzers:
-                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id))), kwds={'quiet': True, 'cpu': cpu})
-                            cpu = (cpu + 1) % args.parallel_run
+                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id))), kwds={'quiet': True, 'cpu': cpu_ids[idx]})
+                            idx = (idx + 1) % args.parallel_run
                 pool.close()
                 pool.join()
             except KeyboardInterrupt:
