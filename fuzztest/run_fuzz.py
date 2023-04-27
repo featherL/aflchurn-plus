@@ -205,6 +205,6 @@ if __name__ == '__main__':
                 for trail_id in range(args.count):
                     for target in targets:
                         for fuzzer in fuzzers:
-                            run_fuzzer(fuzzer, target, trail_id, args.max_time, args.data_dir)
+                            run_fuzzer(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id))))
             except KeyboardInterrupt:
                 pass
