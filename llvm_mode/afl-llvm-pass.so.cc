@@ -736,9 +736,6 @@ unsigned int cal_func_flip(std::string relative_file_path, std::string git_direc
     pclose(fp);
   }
 
-  if (num_flip > 0)
-    num_flip--;
-
   return num_flip;
 }
 
