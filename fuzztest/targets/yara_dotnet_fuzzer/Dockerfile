@@ -27,8 +27,7 @@ RUN apt-get update && apt-get install -y \
   make \
   libtool \
   pkg-config \
-  zip \
-  yacc
+  zip 
 
 RUN git clone https://github.com/VirusTotal/yara.git
 COPY build.sh /
