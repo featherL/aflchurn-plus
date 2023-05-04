@@ -1326,46 +1326,43 @@ bool AFLCoverage::runOnModule(Module &M) {
   }
 
   /* Say something nice. */
+  if (!inst_blocks) WARNF("No instrumentation targets found.");
+  else OKF("Instrumented %u locations (%s mode, ratio %u%%).",
+            inst_blocks, getenv("AFL_HARDEN") ? "hardened" :
+            ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN")) ?
+            "ASAN/MSAN" : "non-hardened"), inst_ratio);
+  OKF("AFLChurn instrumentation ratio %u%%", bb_select_ratio);
+  if (inst_ages) module_ave_ages = module_total_ages / inst_ages;
+  if (inst_changes) module_ave_chanegs = module_total_changes / inst_changes;
+  if (inst_people) module_ave_people = module_total_people / inst_people;
+  if (inst_flip) module_ave_flip = module_total_flip / inst_flip;
+  if (inst_fitness) module_ave_fitness = module_total_fitness / inst_fitness;
 
-  if (!be_quiet) {
-
-    if (!inst_blocks) WARNF("No instrumentation targets found.");
-    else OKF("Instrumented %u locations (%s mode, ratio %u%%).",
-             inst_blocks, getenv("AFL_HARDEN") ? "hardened" :
-             ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN")) ?
-              "ASAN/MSAN" : "non-hardened"), inst_ratio);
-    OKF("AFLChurn instrumentation ratio %u%%", bb_select_ratio);
-    if (inst_ages) module_ave_ages = module_total_ages / inst_ages;
-    if (inst_changes) module_ave_chanegs = module_total_changes / inst_changes;
-    if (inst_people) module_ave_people = module_total_people / inst_people;
-    if (inst_flip) module_ave_flip = module_total_flip / inst_flip;
-    if (inst_fitness) module_ave_fitness = module_total_fitness / inst_fitness;
-
-    if (use_cmd_age && !is_one_commit){
-      OKF("Using Age. Counted %u BBs with the average of f(days)=%.6f ages.", 
-              inst_ages, module_ave_ages);
-    } else if (use_cmd_age_rank && !is_one_commit){
-      OKF("Using Rank. Counted %u BBs with the average age of f(rank)=%.6f commits.", 
-                  inst_ages, module_ave_ages);
-    }
-    if (use_cmd_change && !is_one_commit){
-      OKF("Using Change. Counted %u BBs with the average churn of f(changes)=%.6f churns.",
-                    inst_changes, module_ave_chanegs);
-    } 
-
-    if (use_cmd_people && !is_one_commit){
-      OKF("Using People. Counted %u BBs with the average people of f(people)=%.6f people.",
-                    inst_people, module_ave_people);
-    }
-
-    if (use_cmd_flip && !is_one_commit){
-      OKF("Using Flip. Counted %u BBs with the average flip of f(flip)=%.6f flips.",
-                    inst_flip, module_ave_flip);
-    }
-
-    OKF("BB Churn Raw Fitness. Instrumented %u BBs with average raw fitness of %.6f",
-                    inst_fitness, module_ave_fitness);
+  if (use_cmd_age && !is_one_commit){
+    OKF("Using Age. Counted %u BBs with the average of f(days)=%.6f ages.", 
+            inst_ages, module_ave_ages);
+  } else if (use_cmd_age_rank && !is_one_commit){
+    OKF("Using Rank. Counted %u BBs with the average age of f(rank)=%.6f commits.", 
+                inst_ages, module_ave_ages);
   }
+  if (use_cmd_change && !is_one_commit){
+    OKF("Using Change. Counted %u BBs with the average churn of f(changes)=%.6f churns.",
+                  inst_changes, module_ave_chanegs);
+  } 
+
+  if (use_cmd_people && !is_one_commit){
+    OKF("Using People. Counted %u BBs with the average people of f(people)=%.6f people.",
+                  inst_people, module_ave_people);
+  }
+
+  if (use_cmd_flip && !is_one_commit){
+    OKF("Using Flip. Counted %u BBs with the average flip of f(flip)=%.6f flips.",
+                  inst_flip, module_ave_flip);
+  }
+
+  OKF("BB Churn Raw Fitness. Instrumented %u BBs with average raw fitness of %.6f",
+                  inst_fitness, module_ave_fitness);
+
 
   return true;
 
