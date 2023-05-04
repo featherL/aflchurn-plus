@@ -171,6 +171,7 @@ def prepare_fuzz_environment(input_corpus):
     os.environ['AFL_SKIP_CRASHES'] = '1'
     # Shuffle the queue
     os.environ['AFL_SHUFFLE_QUEUE'] = '1'
+    os.environ['AFLCHURN_INST_RATIO'] = '80'
 
     # AFL needs at least one non-empty seed to start.
     prepare_seed(input_corpus)
