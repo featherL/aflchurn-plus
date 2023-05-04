@@ -98,17 +98,16 @@ def build_fuzzer(fuzzer, target, quiet=False):
     return True
 
 
-def run_fuzzer(fuzzer, target, trial_id, timeout, data_dir, quiet=False, cpu=0):
+def run_fuzzer(fuzzer, target, trial_id, timeout, fuzz_dir, quiet=False, cpu=0):
     target_tag = os.path.join('fuzztest', 'target', target) 
     fuzzer_tag = os.path.join(target_tag, fuzzer)
 
     name = '{}_{}_{}_{}'.format(os.urandom(4).hex(), target, fuzzer, trial_id)
-    result_dir = os.path.join(data_dir, target, fuzzer)
 
-    os.makedirs(os.path.join(result_dir, 'input'), exist_ok=True)
-    os.makedirs(os.path.join(result_dir, 'output'), exist_ok=True)
 
-    run_fuzzer_cmd = 'docker run -e FUZZ_TIMEOUT={} --rm --cpus=1 --cpuset-cpus={} -v {}:/data --name {} {} 2>&1 | tee {}/fuzz.log'.format(timeout, cpu, result_dir, name, fuzzer_tag, result_dir)
+    os.makedirs(os.path.join(fuzz_dir, 'input'), exist_ok=True)
+    os.makedirs(os.path.join(fuzz_dir, 'output'), exist_ok=True)
+    run_fuzzer_cmd = 'docker run -e FUZZ_TIMEOUT={} --rm --cpus=1 --cpuset-cpus={} -v {}:/data --name {} {} 2>&1 | tee {}/fuzz.log'.format(timeout, cpu, fuzz_dir, name, fuzzer_tag, fuzz_dir)
     
     print('[+] Running fuzzer: {}'.format(run_fuzzer_cmd))
     try:
@@ -200,10 +199,13 @@ if __name__ == '__main__':
 
 
             try:
-                for trail_id in range(args.count):
+                for trial_id in range(args.count):
+                    trial_dir = os.path.join(args.data_dir, 'trial_{}'.format(trial_id))
                     for target in targets:
                         for fuzzer in fuzzers:
-                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id))), kwds={'quiet': True, 'cpu': cpu_ids[idx]})
+                            fuzz_dir = os.path.join(trial_dir, target, fuzzer)
+                            os.makedirs(fuzz_dir, exist_ok=True)
+                            pool.apply_async(run_fuzzer, args=(fuzzer, target, trial_id, args.max_time, fuzz_dir), kwds={'quiet': True, 'cpu': cpu_ids[idx]})
                             idx = (idx + 1) % args.parallel_run
                 pool.close()
                 pool.join()
@@ -213,9 +215,12 @@ if __name__ == '__main__':
 
         else:
             try:
-                for trail_id in range(args.count):
+                for trial_id in range(args.count):
+                    trial_dir = os.path.join(args.data_dir, 'trial_{}'.format(trial_id))
                     for target in targets:
                         for fuzzer in fuzzers:
-                            run_fuzzer(fuzzer, target, trail_id, args.max_time, os.path.join(args.data_dir, 'trial_{}'.format(trail_id)))
+                            fuzz_dir = os.path.join(trial_dir, target, fuzzer)
+                            os.makedirs(fuzz_dir, exist_ok=True)
+                            run_fuzzer(fuzzer, target, trial_id, args.max_time, fuzz_dir)
             except KeyboardInterrupt:
                 pass
