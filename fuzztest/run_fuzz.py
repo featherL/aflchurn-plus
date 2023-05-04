@@ -62,7 +62,7 @@ def build_target(target, quiet=False):
     return True
     
 
-def build_fuzzer(fuzzer, target, quiet=False):
+def build_fuzzer(fuzzer, target, build_log_path, quiet=False):
     target_tag = os.path.join('fuzztest', 'target', target) 
     fuzzer_tag = os.path.join(target_tag, fuzzer)
 
@@ -86,7 +86,8 @@ def build_fuzzer(fuzzer, target, quiet=False):
 
     try:
         if quiet:
-            subprocess.check_call(build_fuzzer_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            with open(build_log_path, 'w') as f:
+                subprocess.check_call(build_fuzzer_cmd, stderr=f, stdout=f)
         else:
             subprocess.check_call(build_fuzzer_cmd)
         print('[+] Done: fuzzer: {}'.format(fuzzer_tag))
@@ -136,14 +137,17 @@ if __name__ == '__main__':
     parser.add_argument('-pr', '--parallel-run', type=int, help='parallel count of runners', default=0)
     parser.add_argument('-pb', '--parallel-build', type=int, help='parallel count of builders', default=0)
     parser.add_argument('--data-dir', type=str, help='directory to store results', default='./results')
+    parser.add_argument('--fuzzer-build-log-dir', type=str, help='directory to store fuzzer build logs', default='./fuzzer_build_logs')
 
     args = parser.parse_args()
     args.data_dir = os.path.abspath(args.data_dir)
+    args.fuzzer_build_log_dir = os.path.abspath(args.fuzzer_build_log_dir)
 
     fuzzers = args.fuzzers
     targets = args.targets
 
     if args.build:
+        os.makedirs(args.fuzzer_build_log_dir, exist_ok=True)
         build_baseimag()
 
         if args.parallel_build > 0:
@@ -165,7 +169,7 @@ if __name__ == '__main__':
 
             pool = Pool(args.parallel_build)
             try:
-                results = pool.starmap(build_fuzzer, [(fuzzer, target, True) for target in targets for fuzzer in fuzzers])
+                results = pool.starmap(build_fuzzer, [(fuzzer, target, os.path.join(args.fuzzer_build_log_dir, '{}_{}.log'.format(target, fuzzer)), True) for target in targets for fuzzer in fuzzers])
                 if results.count(True) != len(results):
                     print('[-] Failed!')
                     exit()
@@ -184,6 +188,7 @@ if __name__ == '__main__':
 
 
     if args.run:
+        os.makedirs(args.data_dir, exist_ok=True)
         if args.parallel_run > 0:
             from multiprocessing import Pool, cpu_count
             import psutil
