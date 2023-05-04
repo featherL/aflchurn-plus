@@ -62,7 +62,7 @@ def build_target(target, quiet=False):
     return True
     
 
-def build_fuzzer(fuzzer, target, build_log_path, quiet=False):
+def build_fuzzer(fuzzer, target, build_log_path=None, quiet=False):
     target_tag = os.path.join('fuzztest', 'target', target) 
     fuzzer_tag = os.path.join(target_tag, fuzzer)
 
