@@ -28,7 +28,8 @@ RUN apt-get update && apt-get install -y \
   libtool \
   pkg-config \
   zip \
-  bison
+  bison \
+  flex
 
 RUN git clone https://github.com/VirusTotal/yara.git
 COPY build.sh /
