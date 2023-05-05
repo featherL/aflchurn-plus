@@ -97,7 +97,7 @@ def prepare_build_environment():
     os.environ['CXX'] = '/afl/afl-clang-fast++'
     os.environ['FUZZER_LIB'] = '/libAFL.a'
 
-    os.environ['AFLCHURN_INST_RATIO'] = '80'
+    os.environ['AFLCHURN_INST_RATIO'] = '100'
 
 def build():
     prepare_build_environment()
