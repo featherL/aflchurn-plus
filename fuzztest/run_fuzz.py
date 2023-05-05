@@ -159,7 +159,7 @@ if __name__ == '__main__':
 
                 if results.count(True) != len(results):
                     print('[-] Failed!')
-                    exit()
+                    exit(-1)
             except KeyboardInterrupt:
                 pool.terminate()
                 pool.join()
@@ -172,7 +172,7 @@ if __name__ == '__main__':
                 results = pool.starmap(build_fuzzer, [(fuzzer, target, os.path.join(args.fuzzer_build_log_dir, '{}_{}.log'.format(target, fuzzer)), True) for target in targets for fuzzer in fuzzers])
                 if results.count(True) != len(results):
                     print('[-] Failed!')
-                    exit()
+                    exit(-1)
             except KeyboardInterrupt:
                 pool.terminate()
                 pool.join()
