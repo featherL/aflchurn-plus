@@ -243,6 +243,8 @@ def run_fuzz():
     ]
     print('[run_afl_fuzz] Running command: ' + ' '.join(command))
     timeout = float(os.environ.get('FUZZ_TIMEOUT'))
+    if timeout <= 0:
+        timeout = None
 
     try:
         p = subprocess.Popen(command, start_new_session=True)
