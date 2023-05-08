@@ -188,18 +188,17 @@ if __name__ == '__main__':
 
 
     if args.run:
+        import psutil
+        # get all core id
+        cpu_ids = psutil.Process(1).cpu_affinity()
         os.makedirs(args.data_dir, exist_ok=True)
         if args.parallel_run > 0:
             from multiprocessing import Pool, cpu_count
-            import psutil
 
             if args.parallel_run > cpu_count():
                 raise ValueError('Parallel count must less than the number of total cpu cores ')
 
             pool = Pool(args.parallel_run)
-
-            # get all core id
-            cpu_ids = psutil.Process(1).cpu_affinity()
             idx = 0
 
 
@@ -226,6 +225,6 @@ if __name__ == '__main__':
                         for fuzzer in fuzzers:
                             fuzz_dir = os.path.join(trial_dir, target, fuzzer)
                             os.makedirs(fuzz_dir, exist_ok=True)
-                            run_fuzzer(fuzzer, target, trial_id, args.max_time, fuzz_dir)
+                            run_fuzzer(fuzzer, target, trial_id, args.max_time, fuzz_dir, cpu=cpu_ids[0])
             except KeyboardInterrupt:
                 pass
