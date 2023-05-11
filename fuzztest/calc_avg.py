@@ -10,7 +10,7 @@ if __name__ == '__main__':
     
     results = pd.read_csv(sys.argv[1])
 
-    print('target,fuzzer,valuable_count,tte_avg,total_crashes_avg')
+    print('target,fuzzer,valuable_count,tte_avg,crashes_avg')
     targets = {}
     for index, row in results.iterrows():
         if row['target'] not in targets:
@@ -26,15 +26,19 @@ if __name__ == '__main__':
     
     for target in targets:
         for fuzzer in targets[target]:
-            if len(targets[target][fuzzer][0]) == 0:
-                tte = None
+            valuable_count = len(targets[target][fuzzer][0])
+            if valuable_count == 0:
+                tte_avg = None
             else:
-                tte = sum(targets[target][fuzzer][0]) / len(targets[target][fuzzer][0])
+                tte_avg = sum(targets[target][fuzzer][0]) / len(targets[target][fuzzer][0])
             
             if len(targets[target][fuzzer][1]) == 0:
-                crashes = None
+                crashes_avg = None
             else:
-                crashes = sum(targets[target][fuzzer][1]) / len(targets[target][fuzzer][1])
-            print('{}, {}, {}, {},{}'.format(target, fuzzer, len(targets[target][fuzzer][0]), tte, crashes))
+                crashes_avg = sum(targets[target][fuzzer][1]) / len(targets[target][fuzzer][1])
+            
+            str_tte_avg = '-' if tte_avg is None else '{:.4f}'.format(tte_avg)
+            str_crashes_avg = '-' if crashes_avg is None else '{:.4f}'.format(crashes_avg)
+            print(f'{target},{fuzzer},{valuable_count},{str_tte_avg},{str_crashes_avg}')
             
             
