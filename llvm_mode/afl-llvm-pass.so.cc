@@ -1264,8 +1264,11 @@ bool AFLCoverage::runOnModule(Module &M) {
       /* insert age/churn into BBs */
       bb_raw_fitness = 1.0;
       bb_raw_fitness_flag = true;
+      if (!(AFL_R(100) < bb_select_ratio))
+        bb_raw_fitness_flag = false;
+
       if (use_cmd_age || use_cmd_age_rank) {
-        if (bb_rank_age > 0 && (bb_age_best > norm_age_thd || bb_rank_best > norm_rank_thd)) {
+        if (bb_rank_age > 0 && (bb_age_best > norm_age_thd || bb_rank_best > norm_rank_thd || bb_raw_fitness_flag)) {
           bb_raw_fitness *= bb_rank_age;
         } else {
           bb_raw_fitness_flag = false;
@@ -1273,7 +1276,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       }
 
       if (use_cmd_change) {
-        if (bb_burst_best > 0 && bb_burst_best > norm_change_thd) {
+        if (bb_burst_best > 0 && (bb_burst_best > norm_change_thd || bb_raw_fitness_flag)) {
           bb_raw_fitness *= bb_burst_best;
         } else {
           bb_raw_fitness_flag = false;
@@ -1296,9 +1299,6 @@ bool AFLCoverage::runOnModule(Module &M) {
         }
       }
 
-      if (!(AFL_R(100) < bb_select_ratio))
-        bb_raw_fitness_flag = false;
-      
       if (bb_raw_fitness_flag) {
         if (use_cmd_age || use_cmd_age_rank) {
           inst_ages ++;
