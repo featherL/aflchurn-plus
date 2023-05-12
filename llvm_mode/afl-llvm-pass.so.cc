@@ -657,32 +657,30 @@ bool cal_line_age_rank(std::string relative_file_path, std::string git_directory
 
 /* get number of people who changed the file */
 unsigned int cal_func_people(std::string relative_file_path, std::string git_directory,
-                std::string func_name) {
-  std::ostringstream cal_cmd;
+                std::string func_name, unsigned int start_line, unsigned int end_line) {
+  std::ostringstream cal_cmd1, cal_cmd2;
   unsigned int num_people = 0;
 
+
+  cal_cmd1 << "cd " << git_directory << " && git log";
   char* ch_month = getenv("AFLCHURN_SINCE_MONTHS");
   if (ch_month){
     std::string since_month(ch_month);
     if (since_month.find_first_not_of("0123456789") == std::string::npos){ // all digits
-      
-      cal_cmd << "cd " << git_directory 
-          << " && git log --since=" << ch_month << ".months"
-          << " -L :" << func_name << ":" << relative_file_path;
-          
-    } else {
-      ch_month = NULL; // if env variable is not digits, use all commits
+      cal_cmd1 << " --since=" << ch_month << ".months";
     }
   }
 
-  if (!ch_month) {
-    cal_cmd << "cd " << git_directory
-            << " && git log -L :" << func_name << ":" << relative_file_path;
-  }
+  // copy cal_cmd1 to cal_cmd2
+  cal_cmd2 << cal_cmd1.str();
+  cal_cmd2 << " -L " << start_line << "," << end_line << ":" << relative_file_path;
+  cal_cmd2 << " | grep 'Author: '" << " | sort | uniq | wc -l";
 
-  cal_cmd << " | grep 'Author: '" << " | sort | uniq | wc -l";
+  cal_cmd1 << " -L :" << func_name << ":" << relative_file_path;
+  cal_cmd1 << " | grep 'Author: '" << " | sort | uniq | wc -l";
 
-  FILE *fp = popen(cal_cmd.str().c_str(), "r");
+
+  FILE *fp = popen(cal_cmd1.str().c_str(), "r");
   if (fp != NULL) {
     if (fscanf(fp, "%u", &num_people) != 1) {
       num_people = 0;
@@ -690,39 +688,45 @@ unsigned int cal_func_people(std::string relative_file_path, std::string git_dir
     pclose(fp);
   }
 
+  if (num_people == 0 && (fp = popen(cal_cmd2.str().c_str(), "r")) != NULL) {
+    if (fscanf(fp, "%u", &num_people) != 1) {
+      num_people = 0;
+    }
+    pclose(fp);
+  }
+
+  if (num_people == 0)
+    WARNF("num_people is 0! filepath: %s, func_name: %s, start_line: %u, end_line: %u",
+          relative_file_path.c_str(), func_name.c_str(), start_line, end_line);
   return num_people;
 }
 
 /* get the number of changing flip */
 unsigned int cal_func_flip(std::string relative_file_path, std::string git_directory,
-                std::string func_name) {
-  std::ostringstream cal_cmd;
+                std::string func_name, unsigned int start_line, unsigned int end_line) {
+  std::ostringstream cal_cmd1, cal_cmd2;
   unsigned int num_flip = 0;
+
+  cal_cmd1 << "cd " << git_directory << " && git log";
 
   char* ch_month = getenv("AFLCHURN_SINCE_MONTHS");
   if (ch_month){
     std::string since_month(ch_month);
     if (since_month.find_first_not_of("0123456789") == std::string::npos){ // all digits
-      
-      cal_cmd << "cd " << git_directory 
-          << " && git log --since=" << ch_month << ".months"
-          << " -L :" << func_name << ":" << relative_file_path;
-          
-    } else {
-      ch_month = NULL; // if env variable is not digits, use all commits
+      cal_cmd1 << " --since=" << ch_month << ".months";
     }
   }
 
-  if (!ch_month) {
-    cal_cmd << "cd " << git_directory
-            << " && git log -L :" << func_name << ":" << relative_file_path;
-  }
+  // copy cal_cmd1 to cal_cmd2
+  cal_cmd2 << cal_cmd1.str();
+  cal_cmd2 << " -L " << start_line << "," << end_line << ":" << relative_file_path;
+  cal_cmd2 << " | grep 'Author: '";
 
-  cal_cmd << " | grep 'Author: '";
+  cal_cmd1 << " -L :" << func_name << ":" << relative_file_path;
+  cal_cmd1 << " | grep 'Author: '";
 
-  FILE *fp = popen(cal_cmd.str().c_str(), "r");
 
-
+  FILE *fp = popen(cal_cmd1.str().c_str(), "r");
   if (fp != NULL) {
     char line[1024];
     std::string last_author = "";
@@ -735,6 +739,23 @@ unsigned int cal_func_flip(std::string relative_file_path, std::string git_direc
     }
     pclose(fp);
   }
+
+  if (num_flip == 0 && (fp = popen(cal_cmd2.str().c_str(), "r")) != NULL) {
+    char line[1024];
+    std::string last_author = "";
+    while (fgets(line, sizeof(line), fp) != NULL) {
+      std::string author(line);
+      if (author != last_author) {
+        num_flip++;
+        last_author = author;
+      }
+    }
+    pclose(fp);
+  }
+  
+  if (num_flip == 0)
+    WARNF("num_flip is 0! filepath: %s, func_name: %s, start_line: %u, end_line: %u",
+          relative_file_path.c_str(), func_name.c_str(), start_line, end_line);
 
   return num_flip;
 }
@@ -1059,12 +1080,27 @@ bool AFLCoverage::runOnModule(Module &M) {
                   norm_age_thd = inst_norm_age(head_commit_days - init_commit_days, THRESHOLD_DAYS);
                   norm_rank_thd = inst_norm_rank(head_num_parents, THRESHOLD_RANKS);
 
+                  // get the start line and end line in current function
+                  unsigned int func_start_line = 0, func_end_line = 0;
+                  for (auto &BB : F) {
+                    for (auto &I : BB) {
+                      if (DILocation *Loc = I.getDebugLoc()) {
+                        line = Loc->getLine();
+                        if (func_start_line == 0) func_start_line = line;
+                        else if (line < func_start_line) func_start_line = line;
+                        if (func_end_line == 0) func_end_line = line;
+                        else if (line > func_end_line) func_end_line = line;
+                      }
+                    }
+                  }
+
+                  std::string funcfile_clean_relative_path = get_file_path_relative_to_git_dir(funcfile, funcdir, git_path);
                   if (use_cmd_people) {
-                    func_people_num = cal_func_people(get_file_path_relative_to_git_dir(funcfile, funcdir, git_path), git_path, func_name);
+                    func_people_num = cal_func_people(funcfile_clean_relative_path, git_path, func_name, func_start_line, func_end_line);
                   }
 
                   if (use_cmd_flip) {
-                    func_flip_num = cal_func_flip(get_file_path_relative_to_git_dir(funcfile, funcdir, git_path), git_path, func_name);
+                    func_flip_num = cal_func_flip(funcfile_clean_relative_path, git_path, func_name, func_start_line, func_end_line);
                   }
 
                   break;
