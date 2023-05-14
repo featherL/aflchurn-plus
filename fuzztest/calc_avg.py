@@ -37,8 +37,8 @@ if __name__ == '__main__':
             else:
                 crashes_avg = sum(targets[target][fuzzer][1]) / len(targets[target][fuzzer][1])
             
-            str_tte_avg = '-' if tte_avg is None else '{:.4f}'.format(tte_avg)
-            str_crashes_avg = '-' if crashes_avg is None else '{:.4f}'.format(crashes_avg)
+            str_tte_avg = '0' if tte_avg is None else '{:.4f}'.format(tte_avg)
+            str_crashes_avg = '0' if crashes_avg is None else '{:.4f}'.format(crashes_avg)
             print(f'{target},{fuzzer},{valuable_count},{str_tte_avg},{str_crashes_avg}')
             
             
